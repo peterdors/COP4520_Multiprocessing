@@ -1,8 +1,0 @@
-Would using the vector<bool> and initializing it all to true before doing the 
-sieve be an allowed way of doing so? 
-
-Would the threads have to produce the list of the 10 maximum primes or can we do
-that outside of/when the threading is complete? 
-
-Looking for ways to make threading faster as I am currently at 5 second runtime 
-on 8 threads for 1e8 numbers. 
