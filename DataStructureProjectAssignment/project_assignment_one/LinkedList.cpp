@@ -15,6 +15,13 @@ LinkedList<T>::LinkedList()
 	head = NULL;
 }
 
+template <typename T> 
+LinkedList<T>::~LinkedList()
+{
+	// Works?
+	delete head;
+}
+
 // Insertion at the head of the list. 
 template <typename T> 
 void LinkedList<T>::insert(T data)
@@ -42,75 +49,95 @@ Node<T> *LinkedList<T>::insert(Node<T> *head, T data)
 	return head;
 }
 
-// Removes and returns the element at head of the list. Returns NULL if the list
-// is empty. 
-template <typename T>
-T LinkedList<T>::removeHead()
-{
-	if (head == NULL) 
-	{
-		return (T) 0;
-	}
-
-	return removeHead(&head); 
-}
-
-template <typename T>
-T LinkedList<T>::removeHead(Node<T> **head)
-{
-	Node<T> *old_head = *head; 
-
-	T data = old_head->data; 
-
-	*head = (*head)->next; 
-
-	free(old_head); 
-
-	return data; 
-}
-
-// Removes and returns the nodes data stored at the end of the list. 
 template <typename T> 
-T LinkedList<T>::removeTail()
+Node<T> *LinkedList<T>::search(Node<T> *head, T data)
 {
-	// Case for an empty list. 
-	if (head == NULL) 
+	if (head == NULL)
+		return NULL; 
+
+	Node<T> *sought = head; 
+
+	while (sought != NULL && sought->data != data)
 	{
-		return (T) 0;
-	}
-	
-	// Case for when there is only one element in the list. 
-	if (head->next == NULL)
-	{
-		T elem = head->data; 
-
-		delete head; 
-
-		head = NULL;
-
-		return elem;
+		sought = sought->next;
 	}
 
-	return removeTail(&head); 
+	return sought; 
 }
 
-// Recursion because why not. ;)
 template <typename T> 
-T LinkedList<T>::removeTail(Node<T> **head)
+bool LinkedList<T>::search(T data)
 {
+	Node<T> *sought = search(head, data);
 
-	if ((*head)->next->next == NULL)
-	{
-		T elem = (*head)->next->data; 
+	return (sought == NULL) ? false : true;
+}
 
-		Node<T> *old_tail = (*head)->next; 
-		(*head)->next = NULL;
-		free(old_tail);
-
-		return elem;
+template <typename T> 
+Node<T> *LinkedList<T>::remove(Node<T> *head, T data)
+{
+	if (head == NULL)
+	{ 
+		return NULL; 
 	}
 
-	return removeTail(&((*head)->next));
+	Node<T> *prev = head; 
+	Node<T> *sought = head; 
+
+	while (sought != NULL && sought->data != data)
+	{
+		prev = sought; 
+		sought = sought->next; 
+	}
+
+	return prev; 
+}
+
+template <typename T> 
+bool LinkedList<T>::remove(T data)
+{
+	T retval; 
+
+	if (head == NULL)
+	{ 
+		return false;
+	}
+
+	if (head->data == data)
+	{
+		Node<T> *curr = head; 
+
+		retval = curr->data;
+
+		head = head->next; 
+
+		delete curr; 
+
+		return true;
+	}
+
+	Node<T> *prev = remove(head, data);
+
+	if (prev->next == NULL && prev->data != data)
+	{
+		return false; 
+	}
+	else if (prev->next == NULL && prev->data == data)
+	{
+		delete prev; 
+
+		prev = NULL; 
+
+		return true;
+	}
+
+	Node<T> *toDel = prev->next; 
+
+	prev->next = prev->next->next; 
+
+	delete toDel; 
+
+	return true; 
 }
 
 template <typename T>
@@ -157,36 +184,58 @@ void LinkedList<T>::print()
 
 int main(void)
 {
-	LinkedList<int> *ll = new LinkedList<int>();
-	ll->insert(1); 
-	ll->insert(2);
-	ll->insert(3);
-	ll->insert(4);
-	ll->print();
-	ll->removeHead();
-	ll->print();
-	ll->removeTail();
-	ll->print();
-	ll->destroyList();
-	ll->print();
+	LinkedList<int> ll;
 
-	cout << endl;
+	for (int i = 0; i < 10; i++)
+		ll.insert(i);
 
-	LinkedList<string> *lst = new LinkedList<string>();
-	lst->insert("Peter");
-	lst->insert("is");
-	lst->insert("123");
-	lst->insert("Dookie");
-	lst->insert("Street.");
+	ll.print();
 
-	lst->print();
-	lst->removeHead(); 
-	lst->print();
-	lst->removeHead(); 
-	lst->print();
-	lst->destroyList();
-	lst->print();
+	if (ll.search(-1))
+	{
+		cout << "found " << -1 << endl;
+	}
 
+	if (ll.search(0))
+	{
+		cout << "found " << 0 << endl;
+	}
+
+	if (ll.remove(0))
+	{
+		cout << "removed " << 0 << endl;
+	}
+
+	ll.print();
+
+	if (ll.search(5))
+	{
+		cout << "found " << 5 << endl;
+	}
+
+	if (ll.remove(5))
+	{
+		cout << "removed " << 5 << endl;
+	}
+
+	ll.print();
+
+	if (ll.search(9))
+	{
+		cout << "found " << 9 << endl;
+	}
+
+	if (ll.remove(9))
+	{
+		cout << "removed " << 9 << endl;
+	}
+
+	if (ll.search(9))
+	{
+		cout << "found " << 9 << endl;
+	}
+	
+	ll.print();
 
 	return 0; 
 }

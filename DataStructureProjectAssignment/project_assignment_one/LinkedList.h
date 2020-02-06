@@ -19,28 +19,33 @@ class LinkedList
 private: 
 	Node<T> *head;
 
+	// The important functions that are relative to the assignment. 
 	Node<T> *insert(Node<T> *head, T data);
-	
+
+	Node<T> *search(Node<T> *head, T data);
+
+	Node<T> *remove(Node<T> *head, T data);
+
+	// Just nice to have functions. 
 	Node<T> *destroyList(Node<T> *head);
-
-	T removeHead(Node<T> **head);
-
-	T removeTail(Node<T> **head);
 
 public:
 	LinkedList();
 
+	~LinkedList();
+
+	// The important functions that are relative to the assignment. 
 	void insert(T data);
 
+	bool search(T data); 
+
+	bool remove(T data);
+
+	// Just nice functions to have.
 	void destroyList();
 
 	void print();
 
-	T removeHead(); 
-
-	T removeTail();
-
-	~LinkedList();
 };
 
 
