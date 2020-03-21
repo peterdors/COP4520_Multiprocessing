@@ -2,169 +2,174 @@
 
 // LinkedList.cpp
 // ===============
-// A nice way of practicing how to use generics on data structures in C++. 
+// A nice way of practicing how to use generics on data structures in C++.
 
-#include <iostream> 
-#include "LinkedList.h"
+#include <iostream>
+#include "LinkedList.hpp"
 
-using namespace std; 
+using namespace std;
 
-template <typename T> 
+template <typename T>
 LinkedList<T>::LinkedList()
 {
-	head = NULL;
+	head = nullptr;
+
+	// Preallocate and fill the node bank up for our use.
+	for (int i = 0; i < kNumThreads; i++)
+	{
+		for (int k = 0; k < kMaxNodeBankSize; k++)
+		{
+			node_bank_[i].push_back(new Node<T>());
+		}
+	}
 }
 
-template <typename T> 
+template <typename T>
 LinkedList<T>::~LinkedList()
 {
-	// Works?
-	delete head;
+	// Not to worry about that...
 }
 
-// Insertion at the head of the list. 
-template <typename T> 
-void LinkedList<T>::insert(T data)
+// Insertion at the head of the list.
+template <typename T>
+void LinkedList<T>::Insert(T data, int thread_id)
 {
-	head = insert(head, data);
-}
+	// head = insert(head, data);
 
-template <typename T> 
-Node<T> *LinkedList<T>::insert(Node<T> *head, T data)
-{
-	if (head == NULL) 
+	if (head == nullptr)
 	{
-		head = new Node<T>();
-		head->data = data; 
-		head->next = NULL;
-	}
-	else
-	{
-		Node<T> *newHead = new Node<T>(); 
-		newHead->data = data; 
-		newHead->next = head; 
-		head = newHead; 
+		head = node_bank_[thread_id].back();
+		node_bank_[thread_id].pop_back();
+
+		head->data = data;
+		return;
 	}
 
-	return head;
+	// Insert at the head of the list.
+	Node<T> *newHead = node_bank_[thread_id].back();
+	node_bank_[thread_id].pop_back();
+
+	newHead->data = data;
+	newHead->next = head;
+
+	head = newHead;
 }
 
-template <typename T> 
-Node<T> *LinkedList<T>::search(Node<T> *head, T data)
+template <typename T>
+Node<T>* LinkedList<T>::Search(T data)
 {
-	if (head == NULL)
-		return NULL; 
+	if (head == nullptr)
+		return nullptr;
 
-	Node<T> *sought = head; 
+	Node<T> *sought = head;
 
-	while (sought != NULL && sought->data != data)
+	while (sought != nullptr && sought->data != data)
 	{
 		sought = sought->next;
 	}
 
-	return sought; 
+	return sought;
 }
 
-template <typename T> 
-bool LinkedList<T>::search(T data)
-{
-	Node<T> *sought = search(head, data);
 
-	return (sought == NULL) ? false : true;
+template <typename T>
+bool LinkedList<T>::Find(T data)
+{
+	return (Search(data) == nullptr) ? false : true;
 }
 
-template <typename T> 
-Node<T> *LinkedList<T>::remove(Node<T> *head, T data)
+template <typename T>
+bool LinkedList<T>::Delete(T data, int thread_id)
 {
-	if (head == NULL)
-	{ 
-		return NULL; 
-	}
+	T retval;
 
-	Node<T> *prev = head; 
-	Node<T> *sought = head; 
-
-	while (sought != NULL && sought->data != data)
+	if (head == nullptr)
 	{
-		prev = sought; 
-		sought = sought->next; 
-	}
-
-	return prev; 
-}
-
-template <typename T> 
-bool LinkedList<T>::remove(T data)
-{
-	T retval; 
-
-	if (head == NULL)
-	{ 
 		return false;
 	}
 
 	if (head->data == data)
 	{
-		Node<T> *curr = head; 
+		Node<T> *curr = head;
 
 		retval = curr->data;
 
-		head = head->next; 
+		head = head->next;
 
-		delete curr; 
-
-		return true;
-	}
-
-	Node<T> *prev = remove(head, data);
-
-	if (prev->next == NULL && prev->data != data)
-	{
-		return false; 
-	}
-	else if (prev->next == NULL && prev->data == data)
-	{
-		delete prev; 
-
-		prev = NULL; 
+		node_bank_[thread_id].push_back(curr);
 
 		return true;
 	}
 
-	Node<T> *toDel = prev->next; 
+	Node<T> *prev = Remove(data);
 
-	prev->next = prev->next->next; 
+	if (prev->next == nullptr && prev->data != data)
+	{
+		return false;
+	}
+	else if (prev->next == nullptr && prev->data == data)
+	{
+		node_bank_[thread_id].push_back(prev);
 
-	delete toDel; 
+		prev = nullptr;
 
-	return true; 
+		return true;
+	}
+
+	Node<T> *toDel = prev->next;
+
+	prev->next = prev->next->next;
+
+	node_bank_[thread_id].push_back(toDel);
+
+	return true;
 }
 
 template <typename T>
-void LinkedList<T>::destroyList()
+Node<T> *LinkedList<T>::Remove(T data)
 {
-	head = destroyList(head);
+	if (head == NULL)
+	{
+		return NULL;
+	}
+
+	Node<T> *prev = head;
+	Node<T> *sought = head;
+
+	while (sought != NULL && sought->data != data)
+	{
+		prev = sought;
+		sought = sought->next;
+	}
+
+	return prev;
 }
 
-template <typename T> 
-Node<T> *LinkedList<T>::destroyList(Node<T> *head)
+template <typename T>
+void LinkedList<T>::DestroyList()
+{
+	head = DestroyList(head);
+}
+
+template <typename T>
+Node<T> *LinkedList<T>::DestroyList(Node<T> *head)
 {
 	if (head == NULL)
 		return NULL;
 
-	Node<T> *temp = head; 
+	Node<T> *temp = head;
 	while (head != NULL)
 	{
-		temp = head; 
-		head = head->next; 
-		free(temp);
+		temp = head;
+		head = head->next;
+		delete temp;
 	}
 
 	return NULL;
 }
 
 template <typename T>
-void LinkedList<T>::print()
+void LinkedList<T>::Print()
 {
 	if (head == NULL)
 	{
@@ -172,11 +177,11 @@ void LinkedList<T>::print()
 		return;
 	}
 
-	Node<T> *temp = head; 
+	Node<T> *temp = head;
 	while (temp != NULL)
 	{
 		cout << temp->data << " ";
-		temp = temp->next; 
+		temp = temp->next;
 	}
 
 	cout << endl;
@@ -186,56 +191,96 @@ int main(void)
 {
 	LinkedList<int> ll;
 
+	ll.Print();
+
 	for (int i = 0; i < 10; i++)
-		ll.insert(i);
-
-	ll.print();
-
-	if (ll.search(-1))
 	{
-		cout << "found " << -1 << endl;
+		ll.Insert((i * i) + 0, 0);
+		ll.Insert((i * i) + 1, 1);
+		ll.Insert((i * i) + 2, 2);
+		ll.Insert((i * i) + 3, 3);
 	}
 
-	if (ll.search(0))
-	{
-		cout << "found " << 0 << endl;
-	}
+	ll.Print();
 
-	if (ll.remove(0))
-	{
-		cout << "removed " << 0 << endl;
-	}
+	cout << endl;
+	// Should all be true or 1.
+	cout << ll.Find(19) << endl;
+	cout << ll.Find(12) << endl;
+	cout << ll.Find(3) << endl;
+	cout << ll.Find(0) << endl;
+	cout << ll.Find(84) << endl;
+	cout << ll.Find(66) << endl;
 
-	ll.print();
+	cout << endl;
+	// Should all be true or 1.
+	cout << ll.Delete(19, 0) << endl;
+	cout << ll.Delete(12, 1) << endl;
+	cout << ll.Delete(3, 2) << endl;
+	cout << ll.Delete(0, 3) << endl;
+	cout << ll.Delete(84, 0) << endl;
+	cout << ll.Delete(66, 1) << endl;
 
-	if (ll.search(5))
-	{
-		cout << "found " << 5 << endl;
-	}
+	cout << endl;
+	// Should all be false or 0, except for 3 which is in the list twice.
+	cout << ll.Find(19) << endl;
+	cout << ll.Find(12) << endl;
+	cout << ll.Find(3) << endl;
+	cout << ll.Find(0) << endl;
+	cout << ll.Find(84) << endl;
+	cout << ll.Find(66) << endl;
 
-	if (ll.remove(5))
-	{
-		cout << "removed " << 5 << endl;
-	}
 
-	ll.print();
+	// for (int i = 0; i < 10; i++)
+	// 	ll.insert(i);
+	//
+	// ll.print();
+	//
+	// if (ll.search(-1))
+	// {
+	// 	cout << "found " << -1 << endl;
+	// }
+	//
+	// if (ll.search(0))
+	// {
+	// 	cout << "found " << 0 << endl;
+	// }
+	//
+	// if (ll.remove(0))
+	// {
+	// 	cout << "removed " << 0 << endl;
+	// }
+	//
+	// ll.print();
+	//
+	// if (ll.search(5))
+	// {
+	// 	cout << "found " << 5 << endl;
+	// }
+	//
+	// if (ll.remove(5))
+	// {
+	// 	cout << "removed " << 5 << endl;
+	// }
+	//
+	// ll.print();
+	//
+	// if (ll.search(9))
+	// {
+	// 	cout << "found " << 9 << endl;
+	// }
+	//
+	// if (ll.remove(9))
+	// {
+	// 	cout << "removed " << 9 << endl;
+	// }
+	//
+	// if (ll.search(9))
+	// {
+	// 	cout << "found " << 9 << endl;
+	// }
+	//
+	// ll.print();
 
-	if (ll.search(9))
-	{
-		cout << "found " << 9 << endl;
-	}
-
-	if (ll.remove(9))
-	{
-		cout << "removed " << 9 << endl;
-	}
-
-	if (ll.search(9))
-	{
-		cout << "found " << 9 << endl;
-	}
-	
-	ll.print();
-
-	return 0; 
+	return 0;
 }
