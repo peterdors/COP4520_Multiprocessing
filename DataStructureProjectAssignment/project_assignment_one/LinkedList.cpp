@@ -230,57 +230,7 @@ int main(void)
 	cout << ll.Find(84) << endl;
 	cout << ll.Find(66) << endl;
 
-
-	// for (int i = 0; i < 10; i++)
-	// 	ll.insert(i);
-	//
-	// ll.print();
-	//
-	// if (ll.search(-1))
-	// {
-	// 	cout << "found " << -1 << endl;
-	// }
-	//
-	// if (ll.search(0))
-	// {
-	// 	cout << "found " << 0 << endl;
-	// }
-	//
-	// if (ll.remove(0))
-	// {
-	// 	cout << "removed " << 0 << endl;
-	// }
-	//
-	// ll.print();
-	//
-	// if (ll.search(5))
-	// {
-	// 	cout << "found " << 5 << endl;
-	// }
-	//
-	// if (ll.remove(5))
-	// {
-	// 	cout << "removed " << 5 << endl;
-	// }
-	//
-	// ll.print();
-	//
-	// if (ll.search(9))
-	// {
-	// 	cout << "found " << 9 << endl;
-	// }
-	//
-	// if (ll.remove(9))
-	// {
-	// 	cout << "removed " << 9 << endl;
-	// }
-	//
-	// if (ll.search(9))
-	// {
-	// 	cout << "found " << 9 << endl;
-	// }
-	//
-	// ll.print();
+	ll.Print();
 
 	return 0;
 }
