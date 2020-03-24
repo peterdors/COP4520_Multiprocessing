@@ -1,9 +1,5 @@
-This will hold the sequential implementations of our Linked List data structure. 
+This will hold the sequential implementations and multithreaded w/ MRLock implementations of our Linked List data structure.
 
-To compile the C++ implementation from your terminal or command line, use the following commands. 
+The Linked List inserts node in sorted orderings, thus giving us a sorted list. 
 
-g++ LinkedList.cpp && ./a.out
-
-To compile the Java implementation from your terminal or command line, use the following commands. 
-
-javac LinkedList.java && java LinkedList
+Our algorithm is based on the Lazy Synchronization locking technique for multithreaded lists.  
