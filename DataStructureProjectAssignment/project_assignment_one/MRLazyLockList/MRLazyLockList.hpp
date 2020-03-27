@@ -45,7 +45,7 @@ private:
 
 public:
     MRLazyLockList(void);
-    // ~MRLazyLockList(void);
+    ~MRLazyLockList(void);
 
     bool Insert(uint32_t value, uint8_t thread_id);
     bool Find(uint32_t value);

@@ -19,6 +19,16 @@ MRLazyLockList::MRLazyLockList()
 }
 
 /*
+@def: Destructor for this class.
+@params: none
+@return: Frees memory instances of this class
+*/
+MRLazyLockList::~MRLazyLockList()
+{
+    uninit(ref(l));
+}
+
+/*
 @def: Verifies if the pred->next still points to the curr node.
 @params: (pred)ecessor node, and the (curr)ent node
 @return: True if pred->next is still pointing to curr, false otherwise.
@@ -351,7 +361,7 @@ int main(void)
 
     // Uncomment this line to view the list after the threads have completed
     // running:
-    // list.Print();
+    list.Print();
 
     return 0;
 }
