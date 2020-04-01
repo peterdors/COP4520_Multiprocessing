@@ -2,8 +2,11 @@
 #include <vector>
 #include <array>
 #include <thread>
+#include <chrono>
+#include <fstream>
+#include <iostream>
 
-#define NUM_THREADS 3
+#define NUM_TRANSACTIONS 250
 
 using namespace std;
 
@@ -43,7 +46,7 @@ bool IsNodePresent(Node* n, uint32_t key)
     return n->key == key;
 }
 
-ReturnCode UpdateDesc(Node* n, NodeDesc* nodeDesc, bool wantkey)
+ReturnCode UpdateDesc(Node* n, NodeDesc* nodeDesc, bool wantkey, vector<NodeDesc*>* nodeDescBank, vector<Node*>* nodeBank)
 {
     NodeDesc* oldDesc = n->nodeDesc;
 
@@ -54,7 +57,7 @@ ReturnCode UpdateDesc(Node* n, NodeDesc* nodeDesc, bool wantkey)
 
     if (oldDesc && (oldDesc->desc != nodeDesc->desc))
     {
-        ExecuteOps(oldDesc->desc, oldDesc->opid);
+        ExecuteOps(oldDesc->desc, oldDesc->opid, nodeDescBank, nodeBank);
     }
     else if (oldDesc && (oldDesc->opid >= nodeDesc->opid))
     {
@@ -81,18 +84,26 @@ ReturnCode UpdateDesc(Node* n, NodeDesc* nodeDesc, bool wantkey)
     return RETRY;
 }
 
+// Algorithm 5 Transaction Execution
+void ExecuteMultiTransaction(vector<Desc*> desc, vector<NodeDesc*>& nodeDescBank, vector<Node*>& nodeBank)
+{
+	help_stack.Init();
+
+    for (uint8_t i=0; i<NUM_TRANSACTIONS; i++)
+    	ExecuteTransaction(desc[i], &nodeDescBank, &nodeBank);
+
+    return;
+}
 
 // Algorithm 5 Transaction Execution
-bool ExecuteTransaction(Desc* desc)
+bool ExecuteTransaction(Desc* desc, vector<NodeDesc*>* nodeDescBank, vector<Node*>* nodeBank)
 {
-    help_stack.Init();
-
-    ExecuteOps(desc, 0);
+    ExecuteOps(desc, 0, nodeDescBank, nodeBank);
 
     return desc->status == COMMITTED;
 }
 
-void ExecuteOps(Desc* desc, uint8_t opid)
+void ExecuteOps(Desc* desc, uint8_t opid, vector<NodeDesc*>* nodeDescBank, vector<Node*>* nodeBank)
 {
     bool ret = true;
 
@@ -115,14 +126,14 @@ void ExecuteOps(Desc* desc, uint8_t opid)
 
         if (op.type == FIND)
         {
-            ret = Find(op.key, desc, opid);
+            ret = Find(op.key, desc, opid, nodeDescBank, nodeBank);
         }
         else if (op.type == INSERT)
         {
             Node* inserted;
             Node* pred;
 
-            ret = Insert(op.key, desc, opid, ref(inserted), ref(pred));
+            ret = Insert(op.key, desc, opid, ref(inserted), ref(pred), nodeDescBank, nodeBank);
 
             insNodes.push_back(inserted);
             insPredNodes.push_back(pred);
@@ -132,7 +143,7 @@ void ExecuteOps(Desc* desc, uint8_t opid)
             Node* del;
             Node* pred;
 
-            ret = Delete(op.key, desc, opid, ref(del), ref(pred));
+            ret = Delete(op.key, desc, opid, ref(del), ref(pred), nodeDescBank, nodeBank);
 
             delNodes.push_back(del);
             delPredNodes.push_back(pred);
@@ -157,9 +168,17 @@ void ExecuteOps(Desc* desc, uint8_t opid)
 }
 
 // Algorithm 6 Template for Transformed Insert Function
-bool Insert(uint32_t key, Desc* desc, uint8_t opid, Node*& inserted, Node*& pred)
+bool Insert(uint32_t key, Desc* desc, uint8_t opid,
+            Node*& inserted, Node*& pred,
+            vector<NodeDesc*>* nodeDescBank, vector<Node*>* nodeBank)
 {
-    NodeDesc* nodeDesc = new NodeDesc(desc, opid);
+    // NodeDesc* nodeDesc = new NodeDesc(desc, opid);
+    NodeDesc* nodeDesc = nodeDescBank->back();
+    nodeDesc->desc = desc;
+    nodeDesc->opid = opid;
+    nodeDescBank->pop_back();
+
+
     ReturnCode ret = FAIL;
     Node* curr = head;
     pred = head;
@@ -170,7 +189,7 @@ bool Insert(uint32_t key, Desc* desc, uint8_t opid, Node*& inserted, Node*& pred
 
         if (IsNodePresent(curr, key))
         {
-            ret = UpdateDesc(curr, nodeDesc, false);
+            ret = UpdateDesc(curr, nodeDesc, false, nodeDescBank, nodeBank);
         }
         else
         {
@@ -179,9 +198,12 @@ bool Insert(uint32_t key, Desc* desc, uint8_t opid, Node*& inserted, Node*& pred
                 return FAIL;
             }
 
-            Node* new_node = new Node(key, nullptr, nodeDesc);
-
+            // Node* new_node = new Node(key, nullptr, nodeDesc);
+            Node* new_node = nodeBank->back();
+            new_node->key = key;
             new_node->next = curr;
+            new_node->nodeDesc = nodeDesc;
+            nodeBank->pop_back();
 
             Node* pred_next = __sync_val_compare_and_swap(&(pred->next), curr, new_node);
 
@@ -207,9 +229,14 @@ bool Insert(uint32_t key, Desc* desc, uint8_t opid, Node*& inserted, Node*& pred
 }
 
 // Algorithm 7 Template for Transformed Find Function
-bool Find(uint32_t key, Desc* desc, int opid)
+bool Find(uint32_t key, Desc* desc, int opid, vector<NodeDesc*>* nodeDescBank, vector<Node*>* nodeBank)
 {
-    NodeDesc* nodeDesc = new NodeDesc(desc, opid);
+    // NodeDesc* nodeDesc = new NodeDesc(desc, opid);
+    NodeDesc* nodeDesc = nodeDescBank->back();
+    nodeDesc->desc = desc;
+    nodeDesc->opid = opid;
+    nodeDescBank->pop_back();
+
     ReturnCode ret = FAIL;
     Node* curr = head;
     Node* pred = head;
@@ -220,7 +247,7 @@ bool Find(uint32_t key, Desc* desc, int opid)
 
         if (IsNodePresent(curr, key))
         {
-            ret = UpdateDesc(curr, nodeDesc, true);
+            ret = UpdateDesc(curr, nodeDesc, true, nodeDescBank, nodeBank);
         }
         else
         {
@@ -239,9 +266,16 @@ bool Find(uint32_t key, Desc* desc, int opid)
 }
 
 // Algorithm 8 Template for Transformed Delete Function
-bool Delete(uint32_t key, Desc* desc, uint8_t opid, Node*& del, Node*& pred)
+bool Delete(uint32_t key, Desc* desc, uint8_t opid,
+            Node*& del, Node*& pred,
+            vector<NodeDesc*>* nodeDescBank, vector<Node*>* nodeBank)
 {
-    NodeDesc* nodeDesc = new NodeDesc(desc, opid);
+    // NodeDesc* nodeDesc = new NodeDesc(desc, opid);
+    NodeDesc* nodeDesc = nodeDescBank->back();
+    nodeDesc->desc = desc;
+    nodeDesc->opid = opid;
+    nodeDescBank->pop_back();
+
     ReturnCode ret = FAIL;
     Node* curr = head;
 
@@ -251,7 +285,7 @@ bool Delete(uint32_t key, Desc* desc, uint8_t opid, Node*& del, Node*& pred)
 
         if (IsNodePresent(curr, key))
         {
-            ret = UpdateDesc(curr, nodeDesc, true);
+            ret = UpdateDesc(curr, nodeDesc, true, nodeDescBank, nodeBank);
         }
         else
         {
@@ -353,40 +387,30 @@ void setOpsArray(Desc* desc, Operator** ops, OpType op_type)
 
     for (uint8_t i = 0; i < desc->size; i++)
     {
-        if (op_type == DELETE)
-        {
-            op[i].type = op_type;
-            op[i].key = (2 * (i + 6)) + 1; // odd numbers starting from 13
-            cout << op[i].key << endl;
-        }
-        else
-        {
-            op[i].type = op_type;
-            op[i].key = i + 2;
-        }
+        op[i].type = op_type;
+        op[i].key = (rand()%1000)+1;
+        //cout << op[i].key << endl;
     }
 }
 
 void buildDescriptors(vector<Desc*>& descs, int size)
 {
-    OpType op_type = FIND;
-    uint8_t cnt = 0;
-
-    for (uint8_t i = 0; i < NUM_THREADS; i++)
+	OpType op_type;
+	for (uint8_t i = 0; i < NUM_TRANSACTIONS; i++)
     {
-        descs.push_back(new Desc(size));
+    	float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 
-        if (i == 1)
-        {
-            op_type = INSERT;
-        }
-        else if (i == 2)
-        {
-            op_type = DELETE;
-        }
+    	if (r <= 0.15)
+    		op_type = INSERT;
+    	else if (r <= 0.2)
+    		op_type = DELETE;
+    	else
+    		op_type = FIND;
 
-        setOpsArray(descs.back(), &((descs.back())->ops), op_type);
+        descs[i]=new Desc(size);
+        setOpsArray(descs[i], &((descs[i])->ops), op_type);
     }
+
 }
 
 void preBuildList(void)
@@ -398,54 +422,73 @@ void preBuildList(void)
     }
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-    const int size = 5;
-    tail = new Node(1, nullptr, nullptr);
+    const int size = 1;
+    if (argc < 2)
+    {
+        cout << "Usage: ./a.out <n>" << endl;
+        return -1;
+    }
+
+    const int num_threads = atoi(argv[1]);
+    tail = new Node(1001, nullptr, nullptr);
     head = new Node(0, tail, nullptr);
+    vector<NodeDesc*> nodeDescBank[num_threads];
+    vector<Node*> nodeBank[num_threads];
 
-    vector<Desc*> descs;
+    // pre fill the nodeDescBank and nodeBank.
+    for (int thrd = 0; thrd < num_threads; thrd++)
+    {
+        for (int j = 0; j < 1e5; j++)
+        {
+            nodeDescBank[thrd].push_back(new NodeDesc());
+            nodeBank[thrd].push_back(new Node());
+        }
+    }
 
-    buildDescriptors(ref(descs), size);
-    preBuildList();
+    // list of lists of descriptors
+    // each thread has its own lists.
+    vector<vector<Desc*>> descs(num_threads, vector<Desc*>(NUM_TRANSACTIONS, nullptr));
 
-    // for (int i = 0; i < descs.size(); i++)
-    // {
-    //     for (int j = 0; j < size; j++)
-    //     {
-    //         std::cout << descs[i]->ops[j].type << std::endl;
-    //         std::cout << descs[i]->ops[j].key << std::endl;
-    //         std::cout << std::endl;
-    //     }
-    // }
+    for (vector<Desc*> list : descs)
+    {
+        for (auto& d : list)
+        {
+            delete d;
+        }
+
+        list.clear();
+    }
+
+    for (uint8_t d = 0; d < num_threads; d++)
+    {
+    	buildDescriptors(ref(descs[d]), size);
+    }
+
+    // preBuildList();
 
     vector<thread *> threads;
 
-    // Find
-    threads.push_back(new thread(ExecuteTransaction, descs[0]));
-
-    // Insert
-    threads.push_back(new thread(ExecuteTransaction, descs[1]));
-
-    // Deletion
-    threads.push_back(new thread(ExecuteTransaction, descs[2]));
+    auto start = chrono::high_resolution_clock::now();
+    for (int i = 0; i < num_threads; i++)
+    {
+    	threads.push_back(new thread(ExecuteMultiTransaction, descs[i],
+                        ref(nodeDescBank[i]), ref(nodeBank[i])));
+    }
 
     for (auto& t : threads)
     {
         t->join();
     }
 
-    Node* curr = head;
+    auto stop = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::microseconds>(stop-start).count();
+    ofstream outfile;
 
-    while (curr)
-    {
-        printf("%u ", curr->key);
-        fflush(stdout);
-
-        curr = curr->next;
-    }
-
-    cout << endl;
+   	outfile.open("runtimes.txt", fstream::app);
+    outfile << num_threads << " duration: " << duration << endl;
+    outfile.close();
 
     return 0;
 }
